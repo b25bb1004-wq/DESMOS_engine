@@ -11,12 +11,9 @@
 #include "parser.h"
 #include "evaluator.h"
 
-// Graph size
 static const int G_W = 100;
 static const int G_H = 30;
 
-// ─────────────────────────────────────────────
-// Helper: detect function type
 // ─────────────────────────────────────────────
 bool contains(const std::string& expr, const std::vector<std::string>& keys) {
     for (const auto& k : keys)
@@ -24,8 +21,6 @@ bool contains(const std::string& expr, const std::vector<std::string>& keys) {
     return false;
 }
 
-// ─────────────────────────────────────────────
-// ASCII GRAPH
 // ─────────────────────────────────────────────
 void asciiPlot(const std::vector<Point>& pts,
                const std::string& expr,
@@ -38,18 +33,20 @@ void asciiPlot(const std::vector<Point>& pts,
 
     // Find Y range
     double yMin = pts.front().y, yMax = pts.front().y;
-
     for (const auto& p : pts) {
         yMin = std::min(yMin, p.y);
         yMax = std::max(yMax, p.y);
     }
 
-//  Make range symmetric around 0
+    // 🔥 Symmetric + Clamped scaling
     double absMax = std::max(std::abs(yMin), std::abs(yMax));
+    double Y_LIMIT = 50.0;                     // adjust this if needed
+    absMax = std::min(absMax, Y_LIMIT);
+
     yMin = -absMax;
     yMax = absMax;
-    }
 
+    // Padding
     double yPad = (yMax - yMin) * 0.05;
     if (std::abs(yMax - yMin) < 1e-10) yPad = 1.0;
     yMin -= yPad;
@@ -57,32 +54,29 @@ void asciiPlot(const std::vector<Point>& pts,
 
     std::vector<std::string> grid(G_H, std::string(G_W, ' '));
 
-    // ── Y-axis (x = 0)
+    // Y-axis
     int axisCol = -1;
     if (xMin <= 0 && xMax >= 0) {
-        axisCol = static_cast<int>((0.0 - xMin) / (xMax - xMin) * (G_W - 1));
+        axisCol = (int)((0.0 - xMin) / (xMax - xMin) * (G_W - 1));
         axisCol = std::max(0, std::min(G_W - 1, axisCol));
-
-        for (int r = 0; r < G_H; ++r) {
+        for (int r = 0; r < G_H; ++r)
             grid[r][axisCol] = '|';
-        }
     }
 
-    // ── X-axis (y = 0)
+    // X-axis
     if (yMin <= 0 && yMax >= 0) {
-        int axisRow = G_H - 1 - static_cast<int>((0.0 - yMin) / (yMax - yMin) * (G_H - 1));
+        int axisRow = G_H - 1 - (int)((0.0 - yMin) / (yMax - yMin) * (G_H - 1));
         axisRow = std::max(0, std::min(G_H - 1, axisRow));
-
-        for (int c = 0; c < G_W; ++c) {
-            if (grid[axisRow][c] == '|') grid[axisRow][c] = '+';
-            else grid[axisRow][c] = '-';
-        }
+        for (int c = 0; c < G_W; ++c)
+            grid[axisRow][c] = (grid[axisRow][c] == '|') ? '+' : '-';
     }
 
-    // ── Plot points
+    // Plot points (with clipping)
     for (const auto& p : pts) {
-        int col = static_cast<int>((p.x - xMin) / (xMax - xMin) * (G_W - 1));
-        int row = G_H - 1 - static_cast<int>((p.y - yMin) / (yMax - yMin) * (G_H - 1));
+        if (p.y > yMax || p.y < yMin) continue;
+
+        int col = (int)((p.x - xMin) / (xMax - xMin) * (G_W - 1));
+        int row = G_H - 1 - (int)((p.y - yMin) / (yMax - yMin) * (G_H - 1));
 
         col = std::max(0, std::min(G_W - 1, col));
         row = std::max(0, std::min(G_H - 1, row));
@@ -90,7 +84,7 @@ void asciiPlot(const std::vector<Point>& pts,
         grid[row][col] = '*';
     }
 
-    // ── Print graph
+    // Print
     std::cout << "\n  y = " << expr << "\n";
     std::cout << std::string(G_W + 4, '-') << "\n";
     std::cout << "  y\n";
@@ -106,7 +100,6 @@ void asciiPlot(const std::vector<Point>& pts,
         std::cout << grid[r] << "\n";
     }
 
-    // X-axis labels
     std::cout << "          +";
     std::cout << std::string(G_W, '-') << "\n";
 
@@ -131,8 +124,6 @@ void asciiPlot(const std::vector<Point>& pts,
 }
 
 // ─────────────────────────────────────────────
-// PIPELINE
-// ─────────────────────────────────────────────
 void runPipeline(const std::string& expr) {
     try {
         Tokenizer tok;
@@ -144,38 +135,20 @@ void runPipeline(const std::string& expr) {
 
         double xMin, xMax, step;
 
-        // Dynamic range selection
-        if (contains(expr, {"sin","cos","tan","asin","acos","atan"})) {
-            xMin = -2 * M_PI;
-            xMax =  2 * M_PI;
-            step = 0.01;
+        if (contains(expr, {"sin","cos","tan"})) {
+            xMin = -2*M_PI; xMax = 2*M_PI; step = 0.01;
         }
         else if (contains(expr, {"exp"})) {
-            xMin = -5;
-            xMax = 5;
-            step = 0.05;
+            xMin = -5; xMax = 5; step = 0.05;
         }
         else if (contains(expr, {"log","ln"})) {
-            xMin = 0.1;
-            xMax = 10;
-            step = 0.05;
+            xMin = 0.1; xMax = 10; step = 0.05;
         }
         else {
-            // polynomial / general
-            xMin = -10;
-            xMax = 10;
-            step = 0.1;
+            xMin = -10; xMax = 10; step = 0.1;
         }
 
         auto points = ev.generatePoints(postfix, xMin, xMax, step);
-
-        // optional: save points
-        std::ofstream file("points.txt");
-        for (const auto& p : points) {
-            file << p.x << " " << p.y << "\n";
-        }
-        file.close();
-
         asciiPlot(points, expr, xMin, xMax);
 
     } catch (const std::exception& e) {
@@ -184,28 +157,16 @@ void runPipeline(const std::string& expr) {
 }
 
 // ─────────────────────────────────────────────
-// MAIN
-// ─────────────────────────────────────────────
 int main() {
 
-    std::cout << R"(
-╔══════════════════════════════════════════════════════════════╗
-║              DESMOS ENGINE  —  ICS Project                   ║
-╠══════════════════════════════════════════════════════════════╣
-║  Dynamic range enabled (auto scaling)                        ║
-║  Type 'quit' to exit                                         ║
-╚══════════════════════════════════════════════════════════════╝
-)";
+    std::cout << "🔥 NEW VERSION RUNNING 🔥\n";
 
     while (true) {
         std::string expr;
         std::cout << "f(x) = ";
         std::getline(std::cin, expr);
 
-        if (expr == "quit" || expr == "q" || expr == "exit") {
-            std::cout << "\nGoodbye!\n\n";
-            break;
-        }
+        if (expr == "quit" || expr == "exit") break;
         if (expr.empty()) continue;
 
         runPipeline(expr);
