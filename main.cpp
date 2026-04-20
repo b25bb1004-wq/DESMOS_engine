@@ -27,7 +27,8 @@ static const int    G_H    =    30;   // graph height (chars)
 // ─────────────────────────────────────────────
 //  ASCII GRAPH
 // ─────────────────────────────────────────────
-void asciiPlot(const std::vector<Point>& pts, const std::string& expr) {
+void asciiPlot(const std::vector<Point>& pts, const std::string& expr,
+               double xMin, double xMax) {
     if (pts.empty()) {
         std::cout << "  [No plottable points — expression undefined over entire range]\n\n";
         return;
@@ -48,9 +49,15 @@ void asciiPlot(const std::vector<Point>& pts, const std::string& expr) {
     std::vector<std::string> grid(G_H, std::string(G_W, ' '));
 
     // ── Y-axis  (x = 0) ───────────────────────
-    int axisCol = static_cast<int>((0.0 - X_MIN) / (X_MAX - X_MIN) * (G_W - 1));
-    axisCol = std::max(0, std::min(G_W - 1, axisCol));
-    for (int r = 0; r < G_H; ++r) grid[r][axisCol] = '|';
+    int axisCol = -1;
+
+    if (xMin <= 0 && xMax >= 0) {
+        axisCol = static_cast<int>((0.0 - xMin) / (xMax - xMin) * (G_W - 1));
+        axisCol = std::max(0, std::min(G_W - 1, axisCol));
+
+        for (int r = 0; r < G_H; ++r)
+            grid[r][axisCol] = '|';
+}
 
     // ── X-axis  (y = 0) ───────────────────────
     if (yMin <= 0.0 && yMax >= 0.0) {
@@ -62,7 +69,7 @@ void asciiPlot(const std::vector<Point>& pts, const std::string& expr) {
 
     // ── Plot points ───────────────────────────
     for (const auto& p : pts) {
-        int col = static_cast<int>((p.x - X_MIN) / (X_MAX - X_MIN) * (G_W - 1));
+        int col = static_cast<int>((p.x - xMin) / (xMax - xMin) * (G_W - 1));
         int row = G_H - 1 - static_cast<int>((p.y - yMin) / (yMax - yMin) * (G_H - 1));
         col = std::max(0, std::min(G_W - 1, col));
         row = std::max(0, std::min(G_H - 1, row));
@@ -98,7 +105,11 @@ void asciiPlot(const std::vector<Point>& pts, const std::string& expr) {
     // Print x labels: -100, -50, 0, 50, 100
     std::cout << "           ";
     std::vector<std::pair<int,std::string>> xlabels = {
-        {0, "-100"}, {25, "-50"}, {50, "0"}, {75, "50"}, {99, "100"}
+    {0, std::to_string((int)xMin)},
+    {G_W/4, std::to_string((int)(xMin + (xMax - xMin)/4))},
+    {G_W/2, "0"},
+    {3*G_W/4, std::to_string((int)(xMax - (xMax - xMin)/4))},
+    {G_W-1, std::to_string((int)xMax)}
     };
     int prev = 0;
     for (auto& [col, lbl] : xlabels) {
@@ -117,13 +128,43 @@ void asciiPlot(const std::vector<Point>& pts, const std::string& expr) {
 // ─────────────────────────────────────────────
 //  PIPELINE
 // ─────────────────────────────────────────────
+bool contains(const std::string& expr, const std::vector<std::string>& keys) {
+    for (const auto& k : keys)
+        if (expr.find(k) != std::string::npos) return true;
+    return false;
+}
 void runPipeline(const std::string& expr) {
     try {
         Tokenizer tok; Parser par; Evaluator ev;
 
         auto tokens  = tok.tokenize(expr);
         auto postfix = par.toPostfix(tokens);
-        auto points  = ev.generatePoints(postfix, X_MIN, X_MAX, STEP);
+        double xMin, xMax, step;
+
+// Detect function type
+if (contains(expr, {"sin", "cos", "tan", "asin", "acos", "atan"})) {
+    xMin = -2 * M_PI;
+    xMax =  2 * M_PI;
+    step = 0.01;
+}
+else if (contains(expr, {"exp"})) {
+    xMin = -5;
+    xMax = 5;
+    step = 0.05;
+}
+else if (contains(expr, {"log", "ln"})) {
+    xMin = 0.1;
+    xMax = 10;
+    step = 0.05;
+}
+else {
+    // polynomial / general
+    xMin = -10;
+    xMax = 10;
+    step = 0.1;
+}
+
+auto points = ev.generatePoints(postfix, xMin, xMax, step);
 
         std::ofstream file("points.txt");
             for (const auto& p : points) {
