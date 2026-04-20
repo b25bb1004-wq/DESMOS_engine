@@ -38,9 +38,16 @@ void asciiPlot(const std::vector<Point>& pts,
 
     // Find Y range
     double yMin = pts.front().y, yMax = pts.front().y;
+
     for (const auto& p : pts) {
         yMin = std::min(yMin, p.y);
         yMax = std::max(yMax, p.y);
+    }
+
+//  Make range symmetric around 0
+    double absMax = std::max(std::abs(yMin), std::abs(yMax));
+    yMin = -absMax;
+    yMax = absMax;
     }
 
     double yPad = (yMax - yMin) * 0.05;
