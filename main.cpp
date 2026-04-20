@@ -10,7 +10,6 @@
 #include "tokenizer.h"
 #include "parser.h"
 #include "evaluator.h"
-std::cout << "NEW VERSION RUNNING\n";
 
 // Graph size
 static const int G_W = 100;
