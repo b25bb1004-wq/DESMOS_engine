@@ -172,7 +172,7 @@ auto points = ev.generatePoints(postfix, xMin, xMax, step);
         }
         file.close();
 
-        asciiPlot(points, expr);
+        asciiPlot(points, expr, xMin, xMax);
 
     } catch (const std::exception& e) {
         std::cout << "\n  [ERROR] " << e.what() << "\n\n";
