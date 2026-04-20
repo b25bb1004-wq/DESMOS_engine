@@ -48,7 +48,7 @@ void asciiPlot(const std::vector<Point>& pts,
     double absMax = std::max(std::abs(yMin), std::abs(yMax));
     yMin = -absMax;
     yMax = absMax;
-    }
+    
 
     double yPad = (yMax - yMin) * 0.05;
     if (std::abs(yMax - yMin) < 1e-10) yPad = 1.0;
